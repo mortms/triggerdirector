@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#15121a">
+<title>Trigger Director</title>
+<style>
+  :root {
+    --ground: #15121a;
+    --surface: #1e1925;
+    --raised: #272030;
+    --line: #342c3e;
+    --text: #ebe4d8;
+    --muted: #9b91a7;
+    --faint: #6d6479;
+    --lamp: #f2a93b;
+    --lamp-dim: rgba(242, 169, 59, 0.14);
+    --idle: #74b9aa;
+    --idle-dim: rgba(116, 185, 170, 0.14);
+    --blood: #e2574c;
+    --blood-dim: rgba(226, 87, 76, 0.16);
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, "DejaVu Sans Mono", Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; background: var(--ground); color: var(--text);
+    font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 680px; margin: 0 auto; padding: 20px 16px 40px; display: grid; gap: 24px; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .wordmark { font: 600 17px/1 var(--sans); }
+  .wordmark span { color: var(--faint); font-weight: 400; }
+  .conn { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+  .conn i { width: 7px; height: 7px; border-radius: 50%; background: var(--idle); box-shadow: 0 0 0 3px var(--idle-dim); }
+  .conn.offline i { background: var(--blood); box-shadow: 0 0 0 3px var(--blood-dim); }
+
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  section { display: grid; gap: 8px; }
+  .sec-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .sec-head .meta { font: 12px var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; }
+
+  ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  li { display: grid; gap: 4px; padding: 11px 6px; border-bottom: 1px solid var(--line); }
+  .row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .name { font: 17px/1.3 var(--serif); overflow-wrap: anywhere; }
+  .sub { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+  .sub b { color: var(--text); font-weight: 500; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; flex: none;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 3px 9px 3px 7px; border-radius: 999px; color: var(--state); background: var(--state-dim);
+  }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .ok { --state: var(--idle); --state-dim: var(--idle-dim); }
+  .warn { --state: var(--lamp); --state-dim: var(--lamp-dim); }
+  .bad { --state: var(--blood); --state-dim: var(--blood-dim); }
+
+  .stamp { font: 12px var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; flex: none; }
+  .fired { color: var(--idle); }
+  .skipped { color: var(--muted); }
+
+  footer {
+    display: flex; flex-wrap: wrap; gap: 6px 18px; font: 12px var(--mono); color: var(--faint);
+    border-top: 1px solid var(--line); padding-top: 14px; font-variant-numeric: tabular-nums;
+  }
+  .empty { color: var(--muted); font-size: 13px; padding: 10px 6px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="wordmark">trigger director <span id="host"></span></div>
+    <div class="conn" id="conn"><i></i><span id="conn-label">Connecting…</span></div>
+  </header>
+
+  <section>
+    <div class="sec-head"><span class="eyebrow">Displays</span><span class="meta" id="displays-meta"></span></div>
+    <ol id="displays"></ol>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="eyebrow">Cameras</span><span class="meta" id="cameras-meta"></span></div>
+    <ol id="cameras"></ol>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="eyebrow">Recent detections</span><span class="meta" id="history-meta"></span></div>
+    <ol id="history"></ol>
+  </section>
+
+  <footer><span id="uptime"></span><span id="updated"></span></footer>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let online = false, lastOk = 0;
+
+  $("host").textContent = "· " + location.hostname;
+
+  const ago = (t) => {
+    const s = Math.max(0, Math.round(Date.now() / 1000 - t));
+    if (s < 60) return s + "s ago";
+    if (s < 3600) return Math.floor(s / 60) + "m ago";
+    return Math.floor(s / 3600) + "h " + Math.floor((s % 3600) / 60) + "m ago";
+  };
+
+  const uptime = (s) => {
+    s = Math.floor(s);
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h ? h + "h " + m + "m" : m ? m + "m " + (s % 60) + "s" : s + "s";
+  };
+
+  function row(name, sub, pillText, pillClass, stamp) {
+    const li = document.createElement("li");
+    const top = document.createElement("div");
+    top.className = "row";
+    const n = document.createElement("span");
+    n.className = "name";
+    n.textContent = name;
+    top.append(n);
+    if (pillText) {
+      const p = document.createElement("span");
+      p.className = "pill " + pillClass;
+      p.textContent = pillText;
+      top.append(p);
+    }
+    if (stamp) {
+      const s = document.createElement("span");
+      s.className = "stamp";
+      s.textContent = stamp;
+      top.append(s);
+    }
+    li.append(top);
+    if (sub) {
+      const d = document.createElement("div");
+      d.className = "sub";
+      d.textContent = sub;
+      li.append(d);
+    }
+    return li;
+  }
+
+  function render(data) {
+    const displays = Object.entries(data.displays);
+    $("displays-meta").textContent = displays.filter(([, d]) => d.ok).length + " of " + displays.length + " reachable";
+    $("displays").replaceChildren(...displays.map(([name, d]) =>
+      row(name, d.ok ? d.url + " · playing " + (d.playing || "—") : d.url + " · " + (d.detail || "unreachable"),
+          d.ok ? (d.state || "ok") : "offline", d.ok ? "ok" : "bad")));
+
+    const cameras = Object.entries(data.cameras);
+    $("cameras-meta").textContent = cameras.length + (cameras.length === 1 ? " camera" : " cameras");
+    $("cameras").replaceChildren(...cameras.map(([name, c]) =>
+      row(name, "→ " + c.displays.join(", ") + " · " + (c.clip || "random clip") + " · cooldown " + c.cooldown + "s",
+          c.ready_in ? "waiting " + c.ready_in + "s" : "ready", c.ready_in ? "warn" : "ok")));
+
+    const history = data.history || [];
+    $("history-meta").textContent = history.length ? history.filter((h) => h.fired).length + " fired" : "";
+    if (!history.length) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "No detections yet. Point a Protect webhook at /webhook?camera=<name>.";
+      $("history").replaceChildren(li);
+    } else {
+      $("history").replaceChildren(...history.map((h) => {
+        const detail = (h.displays || []).map((d) =>
+          d.display + ": " + (d.triggered ? "played" : (d.reason || "ignored"))).join(" · ");
+        return row(h.camera, detail || h.reason, h.fired ? "fired" : "ignored", h.fired ? "ok" : "warn", ago(h.at));
+      }));
+    }
+
+    $("uptime").textContent = "up " + uptime(data.uptime);
+  }
+
+  function renderConnection() {
+    $("conn").classList.toggle("offline", !online && lastOk > 0);
+    $("conn-label").textContent = online ? "Live" : lastOk ? "Offline" : "Connecting…";
+    $("updated").textContent = lastOk ? "updated " + ago(lastOk / 1000) : "";
+  }
+
+  async function poll() {
+    try {
+      const res = await fetch("/status.json", { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      render(await res.json());
+      online = true;
+      lastOk = Date.now();
+    } catch (err) {
+      online = false;
+    }
+    renderConnection();
+    setTimeout(poll, 1000);
+  }
+
+  poll();
+</script>
+</body>
+</html>

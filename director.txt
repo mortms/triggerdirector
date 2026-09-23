@@ -1,0 +1,22 @@
+[server]
+port = 8090
+
+# Every display this director can talk to: name = base URL of its vlclooper.
+[displays]
+porch = http://10.1.1.10:8080
+
+# One section per camera, named camera:<the name the webhook sends as ?camera=>.
+# displays  which displays this camera drives (comma or space separated) -- this is
+#           where the N-to-M mapping lives: list a display under several cameras, or
+#           several displays under one camera.
+# clip      optional interrupt clip (by filename) those displays should play; omit
+#           for whichever clip the display picks at random.
+# cooldown  seconds to ignore repeat detections from this camera; defaults to
+#           [triggers] cooldown below.
+[camera:front_porch]
+displays = porch
+clip = UP_Daughter_LivingNightmare_TV_Frame_H.mp4
+cooldown = 45
+
+[triggers]
+cooldown = 45
