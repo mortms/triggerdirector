@@ -5,7 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 -u /home/pi/triggerdirector/director.py
+# director.txt in the repo is the example; the real config is director.txt.local,
+# which is gitignored so `git pull` never conflicts with local edits.
+ExecStart=/usr/bin/python3 -u /home/pi/triggerdirector/director.py --config /home/pi/triggerdirector/director.txt.local
 WorkingDirectory=/home/pi/triggerdirector
 Restart=always
 RestartSec=5
