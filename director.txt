@@ -2,8 +2,12 @@
 port = 8090
 
 # Every display this director can talk to: name = base URL of its vlclooper.
+# Use hostnames, not IPs, so a changed DHCP lease doesn't silently break triggering.
+# A display on the same host as the director can use loopback, which keeps the trigger
+# path off DNS and the network entirely.
 [displays]
-porch = http://10.1.1.10:8080
+porch = http://127.0.0.1:8080
+yard = http://videoplayer5.example.org:8080
 
 # One section per camera, named camera:<the name the webhook sends as ?camera=>.
 # displays  which displays this camera drives (comma or space separated) -- this is
@@ -14,7 +18,7 @@ porch = http://10.1.1.10:8080
 # cooldown  seconds to ignore repeat detections from this camera; defaults to
 #           [triggers] cooldown below.
 [camera:front_porch]
-displays = porch
+displays = porch, yard
 clip = UP_Daughter_LivingNightmare_TV_Frame_H.mp4
 cooldown = 45
 

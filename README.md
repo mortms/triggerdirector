@@ -27,6 +27,10 @@ python3 director.py --check          # validate config, report display reachabil
 Then point a Protect webhook at `http://<host>:8090/webhook?camera=front_porch` and open
 `http://<host>:8090/` for status.
 
+Address the host by DNS name rather than IP — a UniFi gateway resolves its DHCP clients by
+name, so the webhook keeps working when a lease changes. Avoid `.local`, which the Protect
+console generally can't resolve. Give the host a DHCP reservation too.
+
 ## Endpoints
 
 | Route | Purpose |

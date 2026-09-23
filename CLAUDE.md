@@ -65,8 +65,13 @@ as `?camera=`.
 ## Protect setup
 
 Alarm Manager → alarm with a person-detection trigger and a loitering (dwell) condition →
-Webhook action → `http://<director-host>:8090/webhook?camera=<name>`. Use the director's
-IP; the Protect console generally can't resolve `.local` names.
+Webhook action → `http://<director-host>:8090/webhook?camera=<name>`.
+
+Use the host's **DNS name, not an IP and not `.local`**: a UniFi gateway resolves its DHCP
+clients by name (and by FQDN under the site's search domain), so `videoplayer4` and
+`videoplayer4.sf.jharding.org` both work from anything using the gateway as its resolver,
+while `.local` (mDNS) generally does not resolve on the Protect console. Give the host a
+DHCP reservation so the name keeps pointing at the same machine.
 
 ## Future work
 
