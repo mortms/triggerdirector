@@ -65,6 +65,21 @@
   .fired { color: var(--idle); }
   .skipped { color: var(--muted); }
 
+  .sec-foot { display: flex; align-items: baseline; gap: 12px; padding-top: 4px; }
+  .ghost {
+    appearance: none; cursor: pointer; flex: none;
+    background: none; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 5px 11px; font: 500 12px/1 var(--sans);
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .ghost:hover:not(:disabled) { color: var(--text); border-color: var(--faint); }
+  .ghost:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
+  .ghost:disabled { cursor: default; opacity: 0.55; }
+  .note { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+  .note.good { color: var(--idle); }
+  .note.bad { color: var(--blood); }
+
   footer {
     display: flex; flex-wrap: wrap; gap: 6px 18px; font: 12px var(--mono); color: var(--faint);
     border-top: 1px solid var(--line); padding-top: 14px; font-variant-numeric: tabular-nums;
@@ -87,6 +102,10 @@
   <section>
     <div class="sec-head"><span class="eyebrow">Cameras</span><span class="meta" id="cameras-meta"></span></div>
     <ol id="cameras"></ol>
+    <div class="sec-foot">
+      <button class="ghost" id="reload" type="button">Reload config</button>
+      <span class="note" id="reload-note"></span>
+    </div>
   </section>
 
   <section>
@@ -182,6 +201,25 @@
     $("conn-label").textContent = online ? "Live" : lastOk ? "Offline" : "Connecting…";
     $("updated").textContent = lastOk ? "updated " + ago(lastOk / 1000) : "";
   }
+
+  $("reload").addEventListener("click", async () => {
+    const btn = $("reload"), note = $("reload-note");
+    btn.disabled = true;
+    note.className = "note";
+    note.textContent = "Reloading…";
+    try {
+      const res = await fetch("/reload", { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || ("HTTP " + res.status));
+      note.className = "note good";
+      note.textContent = "Reloaded: " + body.cameras + " camera" + (body.cameras === 1 ? "" : "s")
+        + ", " + body.displays + " display" + (body.displays === 1 ? "" : "s");
+    } catch (err) {
+      note.className = "note bad";
+      note.textContent = "Couldn't reload: " + err.message;
+    }
+    btn.disabled = false;
+  });
 
   async function poll() {
     try {
