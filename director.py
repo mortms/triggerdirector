@@ -24,7 +24,7 @@ from urllib.error import URLError
 DEFAULT_PORT = 8090
 DEFAULT_COOLDOWN = 45
 DISPLAY_TIMEOUT = 3          # seconds to wait on a display before giving up on it
-HEALTH_INTERVAL = 20         # seconds between display reachability checks
+HEALTH_INTERVAL = 5          # seconds between display reachability checks
 HISTORY = 50                 # webhooks kept for the status page
 
 
@@ -144,17 +144,28 @@ class Director:
     # --- housekeeping ---------------------------------------------------------
 
     def check_health(self):
-        """Poll each display's status so the page can show which are reachable."""
-        for name, base in self.config['displays'].items():
-            entry = {'checked': time.time(), 'ok': False}
-            try:
-                with urlopen(base + "/status.json", timeout=DISPLAY_TIMEOUT) as response:
-                    body = json.loads(response.read().decode())
-                current = body.get('current') or {}
-                entry.update(ok=True, state=body.get('state'), playing=current.get('name'))
-            except (URLError, OSError, ValueError) as e:
-                entry['detail'] = "%s: %s" % (type(e).__name__, e)
-            self.health[name] = entry
+        """Poll every display's status in parallel so the page can show what's reachable.
+
+        In parallel because a display that is off costs DISPLAY_TIMEOUT to find out, and
+        sequential checks would make every other display's reading that much staler.
+        """
+        threads = [threading.Thread(target=self._check_display, args=(name, base))
+                   for name, base in self.config['displays'].items()]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(DISPLAY_TIMEOUT + 2)
+
+    def _check_display(self, name, base):
+        entry = {'checked': time.time(), 'ok': False}
+        try:
+            with urlopen(base + "/status.json", timeout=DISPLAY_TIMEOUT) as response:
+                body = json.loads(response.read().decode())
+            current = body.get('current') or {}
+            entry.update(ok=True, state=body.get('state'), playing=current.get('name'))
+        except (URLError, OSError, ValueError) as e:
+            entry['detail'] = "%s: %s" % (type(e).__name__, e)
+        self.health[name] = entry
 
     def health_loop(self, stop):
         while not stop.wait(HEALTH_INTERVAL):

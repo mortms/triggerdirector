@@ -170,7 +170,8 @@
     $("displays-meta").textContent = displays.filter(([, d]) => d.ok).length + " of " + displays.length + " reachable";
     $("displays").replaceChildren(...displays.map(([name, d]) =>
       row(name, d.ok ? d.url + " · playing " + (d.playing || "—") : d.url + " · " + (d.detail || "unreachable"),
-          d.ok ? (d.state || "ok") : "offline", d.ok ? "ok" : "bad")));
+          d.ok ? (d.state || "ok") : "offline", d.ok ? "ok" : "bad",
+          d.checked ? "checked " + ago(d.checked) : "")));
 
     const cameras = Object.entries(data.cameras);
     $("cameras-meta").textContent = cameras.length + (cameras.length === 1 ? " camera" : " cameras");
