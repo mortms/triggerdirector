@@ -121,6 +121,8 @@
   let online = false, lastOk = 0;
 
   $("host").textContent = "· " + location.hostname;
+  // Hostname first, matching the displays' pages, so tabs stay distinguishable truncated.
+  document.title = location.hostname + " · director";
 
   const ago = (t) => {
     const s = Math.max(0, Math.round(Date.now() / 1000 - t));
